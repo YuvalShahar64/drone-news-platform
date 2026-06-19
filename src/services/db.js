@@ -1,6 +1,29 @@
 const { initDb } = require('../db/init');
+const { normalizeUrl } = require('../lib/urlNormalizer');
 
 const db = initDb();
+
+// One-time migration: normalize any pre-existing URLs that weren't normalised
+// (e.g. rows with #fragment, utm_* params, or /amp).
+// UPDATE OR IGNORE leaves the row unchanged when the normalized URL already
+// exists (UNIQUE conflict), so we explicitly delete that duplicate instead.
+(function migrateExistingUrls() {
+  const stale = db.prepare(
+    "SELECT id, url FROM articles WHERE url LIKE '%#%' OR url LIKE '%utm_%' OR url LIKE '%/amp'"
+  ).all();
+  if (stale.length === 0) return;
+  const update = db.prepare('UPDATE OR IGNORE articles SET url = ? WHERE id = ?');
+  const del    = db.prepare('DELETE FROM articles WHERE id = ?');
+  db.transaction(() => {
+    for (const row of stale) {
+      const norm = normalizeUrl(row.url);
+      if (norm === row.url) continue;
+      const { changes } = update.run(norm, row.id);
+      if (changes === 0) del.run(row.id); // normalized URL already exists — drop duplicate
+    }
+  })();
+  console.log(`[db] Normalised ${stale.length} existing URL(s)`);
+})();
 
 function getArticles(category) {
   if (category && category !== 'All') {
