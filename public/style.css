@@ -55,9 +55,6 @@ header h1 { font-size: 1.4rem; letter-spacing: 0.02em; white-space: nowrap; }
   align-items: center;
   gap: 0.75rem;
   padding: 0.55rem 2rem;
-  position: sticky;
-  top: 57px;
-  z-index: 19;
 }
 .breaking-strip.hidden { display: none; }
 
@@ -102,7 +99,7 @@ header h1 { font-size: 1.4rem; letter-spacing: 0.02em; white-space: nowrap; }
   background: #fff;
   border-bottom: 1px solid #e8e8ef;
   position: sticky;
-  top: 93px; /* header (~57px) + breaking strip (~36px) */
+  top: 57px;
   z-index: 18;
 }
 

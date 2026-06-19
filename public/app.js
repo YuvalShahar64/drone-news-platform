@@ -13,6 +13,9 @@ let allArticles    = [];
 let activeCategory = 'All';
 let activeHours    = 24;
 
+// Pill values ordered from most to least restrictive (0 = All time)
+const PILL_HOURS = [24, 168, 720, 0];
+
 // ── Fetch ────────────────────────────────────────────────────────────────────
 
 async function loadNews(keyword = '') {
@@ -31,10 +34,24 @@ async function loadNews(keyword = '') {
 
 // ── Filtering ────────────────────────────────────────────────────────────────
 
+function filterByTime(articles, hours, now) {
+  if (hours === 0) return articles;
+  return articles.filter(a => {
+    if (!a.published_at) return false;
+    return (now - new Date(a.published_at).getTime()) / 36e5 <= hours;
+  });
+}
+
+function setActivePill(hours) {
+  document.querySelectorAll('.pill').forEach(p => {
+    p.classList.toggle('active', Number(p.dataset.hours) === hours);
+  });
+}
+
 function applyFilters() {
   const now = Date.now();
 
-  // Breaking news: articles < 24h from unfiltered set
+  // Breaking news: articles < 24h from unfiltered set (ignores category/time filters)
   const cutoff24h = now - 24 * 36e5;
   const breaking = allArticles.filter(
     a => a.published_at && new Date(a.published_at).getTime() >= cutoff24h
@@ -47,13 +64,21 @@ function applyFilters() {
     : allArticles.filter(a => a.category === activeCategory);
 
   // Time filter
-  const byTime = activeHours === 0
-    ? byCat
-    : byCat.filter(a => {
-        if (!a.published_at) return false;
-        const ageHours = (now - new Date(a.published_at).getTime()) / 36e5;
-        return ageHours <= activeHours;
-      });
+  let byTime = filterByTime(byCat, activeHours, now);
+
+  // If no articles match, auto-advance to the next less restrictive pill
+  if (byTime.length === 0 && byCat.length > 0) {
+    const idx = PILL_HOURS.indexOf(activeHours);
+    for (let i = idx + 1; i < PILL_HOURS.length; i++) {
+      const candidate = filterByTime(byCat, PILL_HOURS[i], now);
+      if (candidate.length > 0 || PILL_HOURS[i] === 0) {
+        activeHours = PILL_HOURS[i];
+        setActivePill(activeHours);
+        byTime = candidate;
+        break;
+      }
+    }
+  }
 
   renderGrid(byTime);
 }
@@ -188,9 +213,8 @@ document.getElementById('category-tabs').addEventListener('click', e => {
 document.getElementById('time-pills').addEventListener('click', e => {
   const pill = e.target.closest('.pill');
   if (!pill) return;
-  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
-  pill.classList.add('active');
   activeHours = Number(pill.dataset.hours);
+  setActivePill(activeHours);
   applyFilters();
 });
 

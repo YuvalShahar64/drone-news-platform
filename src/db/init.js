@@ -22,6 +22,14 @@ function initDb() {
     )
   `);
   try { db.exec("ALTER TABLE articles ADD COLUMN category TEXT DEFAULT 'General'"); } catch {}
+  // Remove duplicate articles, keeping the earliest row per normalised title
+  db.exec(`
+    DELETE FROM articles WHERE id NOT IN (
+      SELECT MIN(id) FROM articles
+      WHERE title IS NOT NULL
+      GROUP BY LOWER(TRIM(title))
+    ) AND title IS NOT NULL
+  `);
   return db;
 }
 
