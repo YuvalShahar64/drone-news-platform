@@ -1,0 +1,36 @@
+const { upsertArticles } = require('./db');
+
+async function fetchAndStoreDroneNews() {
+  const apiKey = process.env.NEWS_API_KEY;
+  const url = `https://newsapi.org/v2/everything?q=drone&pageSize=100&apiKey=${apiKey}`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10000);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    const data = await res.json();
+    if (!Array.isArray(data.articles)) {
+      console.error('News API error:', data.message || 'Unexpected response shape');
+      return;
+    }
+    const rows = data.articles
+      .filter(a => a.url)
+      .map(a => ({
+        url:          a.url,
+        title:        a.title        ?? null,
+        description:  a.description  ?? null,
+        author:       a.author       ?? null,
+        source:       a.source?.name ?? null,
+        published_at: a.publishedAt  ?? null,
+        url_to_image: a.urlToImage   ?? null,
+        content:      a.content      ?? null,
+      }));
+    upsertArticles(rows);
+    console.log(`[cron] Upserted ${rows.length} articles`);
+  } catch (err) {
+    console.error('[cron] Fetch failed:', err.message);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+module.exports = { fetchAndStoreDroneNews };
