@@ -15,6 +15,30 @@
     </div>
   </header>
 
+  <section id="breaking-strip" class="breaking-strip hidden" aria-label="Breaking news">
+    <span class="breaking-label">BREAKING</span>
+    <div id="breaking-scroll" class="breaking-scroll"></div>
+  </section>
+
+  <div id="filter-bar" class="filter-bar">
+    <div id="category-tabs" class="category-tabs" role="tablist" aria-label="Filter by category">
+      <button class="tab active" data-category="All"                     role="tab">All</button>
+      <button class="tab"        data-category="Military &amp; Defense"   role="tab">Military &amp; Defense</button>
+      <button class="tab"        data-category="Delivery &amp; Logistics" role="tab">Delivery &amp; Logistics</button>
+      <button class="tab"        data-category="Racing &amp; Sport"       role="tab">Racing &amp; Sport</button>
+      <button class="tab"        data-category="Regulations &amp; Policy" role="tab">Regulations &amp; Policy</button>
+      <button class="tab"        data-category="Technology &amp; Innovation" role="tab">Technology &amp; Innovation</button>
+      <button class="tab"        data-category="Surveillance &amp; Security" role="tab">Surveillance &amp; Security</button>
+      <button class="tab"        data-category="General"                  role="tab">General</button>
+    </div>
+    <div id="time-pills" class="time-pills" aria-label="Filter by time">
+      <button class="pill active" data-hours="24">24h</button>
+      <button class="pill"        data-hours="168">7 days</button>
+      <button class="pill"        data-hours="720">30 days</button>
+      <button class="pill"        data-hours="0">All time</button>
+    </div>
+  </div>
+
   <main id="articles"></main>
 
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true">

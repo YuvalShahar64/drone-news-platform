@@ -1,4 +1,5 @@
 const { upsertArticles } = require('./db');
+const { classifyArticle } = require('../lib/categoryClassifier');
 
 async function fetchAndStoreDroneNews() {
   const apiKey = process.env.NEWS_API_KEY;
@@ -23,6 +24,7 @@ async function fetchAndStoreDroneNews() {
         published_at: a.publishedAt  ?? null,
         url_to_image: a.urlToImage   ?? null,
         content:      a.content      ?? null,
+        category:     classifyArticle({ title: a.title, description: a.description }),
       }));
     upsertArticles(rows);
     console.log(`[cron] Upserted ${rows.length} articles`);

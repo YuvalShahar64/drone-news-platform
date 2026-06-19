@@ -1,29 +1,83 @@
-const articlesEl  = document.getElementById('articles');
-const searchInput = document.getElementById('search-input');
-const searchBtn   = document.getElementById('search-btn');
-const modal       = document.getElementById('modal');
-const modalBody   = document.getElementById('modal-body');
-const modalClose  = document.getElementById('modal-close');
+const articlesEl   = document.getElementById('articles');
+const searchInput  = document.getElementById('search-input');
+const searchBtn    = document.getElementById('search-btn');
+const modal        = document.getElementById('modal');
+const modalBody    = document.getElementById('modal-body');
+const modalClose   = document.getElementById('modal-close');
+const breakingStrip  = document.getElementById('breaking-strip');
+const breakingScroll = document.getElementById('breaking-scroll');
 
-// ── Fetch & render ──────────────────────────────────────────────────────────
+// ── State ───────────────────────────────────────────────────────────────────
+
+let allArticles    = [];
+let activeCategory = 'All';
+let activeHours    = 24;
+
+// ── Fetch ────────────────────────────────────────────────────────────────────
 
 async function loadNews(keyword = '') {
   articlesEl.innerHTML = '<p class="empty-msg">Loading…</p>';
-  const url = keyword
-    ? `/api/news?keyword=${encodeURIComponent(keyword)}`
-    : '/api/news';
+  const params = new URLSearchParams();
+  if (keyword) params.set('keyword', keyword);
   try {
-    const res  = await fetch(url);
+    const res  = await fetch(`/api/news?${params}`);
     const data = await res.json();
-    renderArticles(data);
+    allArticles = data.articles || [];
+    applyFilters();
   } catch {
     articlesEl.innerHTML = '<p class="empty-msg">Failed to load news. Is the server running?</p>';
   }
 }
 
-function renderArticles({ articles, message }) {
-  if (!articles || articles.length === 0) {
-    articlesEl.innerHTML = `<p class="empty-msg">${esc(message || 'No articles found.')}</p>`;
+// ── Filtering ────────────────────────────────────────────────────────────────
+
+function applyFilters() {
+  const now = Date.now();
+
+  // Breaking news: articles < 24h from unfiltered set
+  const cutoff24h = now - 24 * 36e5;
+  const breaking = allArticles.filter(
+    a => a.published_at && new Date(a.published_at).getTime() >= cutoff24h
+  );
+  renderBreaking(breaking);
+
+  // Category filter
+  const byCat = activeCategory === 'All'
+    ? allArticles
+    : allArticles.filter(a => a.category === activeCategory);
+
+  // Time filter
+  const byTime = activeHours === 0
+    ? byCat
+    : byCat.filter(a => {
+        if (!a.published_at) return false;
+        const ageHours = (now - new Date(a.published_at).getTime()) / 36e5;
+        return ageHours <= activeHours;
+      });
+
+  renderGrid(byTime);
+}
+
+// ── Renderers ────────────────────────────────────────────────────────────────
+
+function renderBreaking(articles) {
+  if (articles.length === 0) {
+    breakingStrip.classList.add('hidden');
+    return;
+  }
+  breakingStrip.classList.remove('hidden');
+  breakingScroll.innerHTML = articles.map((a, i) =>
+    (i > 0 ? '<span class="breaking-sep" aria-hidden="true">·</span>' : '') +
+    `<a class="breaking-item" href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title || 'Untitled')}</a>`
+  ).join('');
+}
+
+function renderGrid(articles) {
+  if (articles.length === 0) {
+    const msg = allArticles.length === 0
+      ? 'No articles yet — the fetcher runs on startup and every 30 minutes.'
+      : 'No articles match the current filters.';
+    articlesEl.innerHTML = `<p class="empty-msg">${esc(msg)}</p>`;
     return;
   }
   articlesEl.innerHTML = articles.map(buildCard).join('');
@@ -35,13 +89,17 @@ function buildCard(a) {
   const imgTag = a.url_to_image
     ? `<img src="${esc(a.url_to_image)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
     : '';
+  const categoryTag = a.category
+    ? `<span class="card-category">${esc(a.category)}</span>`
+    : '';
   const authorBtn = a.author
-    ? `<button class="btn-author" data-author="${escAttr(a.author)}">Author Info</button>`
+    ? `<button class="btn-author" data-author="${escAttr(a.author)}" data-article-url="${escAttr(a.url)}">Author Info</button>`
     : '';
   return `
     <article class="card">
       ${imgTag}
       <div class="card-body">
+        ${categoryTag}
         <div class="card-meta">${esc(meta)}</div>
         <div class="card-title">
           <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title || 'Untitled')}</a>
@@ -55,18 +113,34 @@ function buildCard(a) {
     </article>`;
 }
 
-// ── Author modal ────────────────────────────────────────────────────────────
+// ── Author modal ─────────────────────────────────────────────────────────────
 
-async function showAuthorInfo(name) {
+async function showAuthorInfo(name, articleUrl) {
   modalBody.innerHTML = '<p>Loading…</p>';
   modal.classList.remove('hidden');
   try {
-    const res  = await fetch(`/api/author/${encodeURIComponent(name)}`);
+    const params = new URLSearchParams({ articleUrl });
+    const res  = await fetch(`/api/author/${encodeURIComponent(name)}?${params}`);
     const data = await res.json();
-    if (!data.ok) {
-      modalBody.innerHTML = `<p class="modal-error">${esc(data.message)}</p>`;
-      return;
-    }
+    renderModal(data, name);
+  } catch {
+    modalBody.innerHTML = '<p class="modal-error">Failed to fetch author information.</p>';
+  }
+}
+
+function renderModal(data, name) {
+  if (!data.ok) {
+    modalBody.innerHTML = `<p class="modal-error">${esc(data.message || 'Author information not available.')}</p>`;
+    return;
+  }
+  if (data.type === 'link') {
+    modalBody.innerHTML = `
+      <h2>${esc(name)}</h2>
+      <p>An author profile page was found for this article.</p>
+      <a class="btn-profile" href="${esc(data.authorUrl)}" target="_blank" rel="noopener noreferrer">View Author Profile →</a>`;
+    return;
+  }
+  if (data.type === 'wiki') {
     const thumb = data.thumbnail
       ? `<img class="modal-thumb" src="${esc(data.thumbnail)}" alt="${escAttr(data.title)}" />`
       : '';
@@ -78,14 +152,10 @@ async function showAuthorInfo(name) {
       <h2>${esc(data.title)}</h2>
       <p>${esc(data.summary)}</p>
       ${wikiLink}`;
-  } catch {
-    modalBody.innerHTML = '<p class="modal-error">Failed to fetch author information.</p>';
   }
 }
 
-function closeModal() { modal.classList.add('hidden'); }
-
-// ── Escape helpers ──────────────────────────────────────────────────────────
+// ── Escape helpers ────────────────────────────────────────────────────────────
 
 function esc(str) {
   return String(str ?? '')
@@ -99,22 +169,41 @@ function escAttr(str) {
   return String(str ?? '').replace(/"/g, '&quot;');
 }
 
-// ── Event listeners ─────────────────────────────────────────────────────────
+// ── Event listeners ───────────────────────────────────────────────────────────
 
 searchBtn.addEventListener('click', () => loadNews(searchInput.value.trim()));
 searchInput.addEventListener('keydown', e => {
   if (e.key === 'Enter') loadNews(searchInput.value.trim());
 });
 
+document.getElementById('category-tabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  activeCategory = tab.dataset.category;
+  applyFilters();
+});
+
+document.getElementById('time-pills').addEventListener('click', e => {
+  const pill = e.target.closest('.pill');
+  if (!pill) return;
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('active'));
+  pill.classList.add('active');
+  activeHours = Number(pill.dataset.hours);
+  applyFilters();
+});
+
+function closeModal() { modal.classList.add('hidden'); }
 modalClose.addEventListener('click', closeModal);
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 articlesEl.addEventListener('click', e => {
   const btn = e.target.closest('.btn-author');
-  if (btn) showAuthorInfo(btn.dataset.author);
+  if (btn) showAuthorInfo(btn.dataset.author, btn.dataset.articleUrl);
 });
 
-// ── Init ────────────────────────────────────────────────────────────────────
+// ── Init ──────────────────────────────────────────────────────────────────────
 
 loadNews();

@@ -18,7 +18,7 @@ header {
   flex-wrap: wrap;
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 20;
 }
 
 header h1 { font-size: 1.4rem; letter-spacing: 0.02em; white-space: nowrap; }
@@ -46,6 +46,102 @@ header h1 { font-size: 1.4rem; letter-spacing: 0.02em; white-space: nowrap; }
   transition: background 0.15s;
 }
 .search-bar button:hover { background: #c73652; }
+
+/* ── Breaking news strip ── */
+.breaking-strip {
+  background: #e94560;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 2rem;
+  position: sticky;
+  top: 57px;
+  z-index: 19;
+}
+.breaking-strip.hidden { display: none; }
+
+.breaking-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  background: #fff;
+  color: #e94560;
+  padding: 0.15rem 0.45rem;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.breaking-scroll {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.breaking-scroll::-webkit-scrollbar { display: none; }
+
+.breaking-item {
+  color: #fff;
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.breaking-item:hover { text-decoration: underline; }
+.breaking-sep { opacity: 0.4; flex-shrink: 0; }
+
+/* ── Filter bar ── */
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.65rem 2rem;
+  background: #fff;
+  border-bottom: 1px solid #e8e8ef;
+  position: sticky;
+  top: 93px; /* header (~57px) + breaking strip (~36px) */
+  z-index: 18;
+}
+
+.category-tabs {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.tab {
+  padding: 0.32rem 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.tab:hover  { border-color: #1a1a2e; color: #1a1a2e; }
+.tab.active { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+
+.time-pills { display: flex; gap: 0.4rem; flex-shrink: 0; }
+
+.pill {
+  padding: 0.32rem 0.7rem;
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  background: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: #555;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.pill:hover  { border-color: #e94560; color: #e94560; }
+.pill.active { background: #e94560; color: #fff; border-color: #e94560; }
 
 /* ── Card grid ── */
 #articles {
@@ -91,6 +187,19 @@ header h1 { font-size: 1.4rem; letter-spacing: 0.02em; white-space: nowrap; }
 }
 
 .card-meta { font-size: 0.76rem; color: #999; }
+
+.card-category {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.45rem;
+  border-radius: 3px;
+  background: #f0f0f6;
+  color: #555;
+  align-self: flex-start;
+}
 
 .card-title a {
   font-size: 0.98rem;
@@ -183,7 +292,6 @@ header h1 { font-size: 1.4rem; letter-spacing: 0.02em; white-space: nowrap; }
   color: #444;
   line-height: 1.65;
   margin-bottom: 0.75rem;
-  clear: none;
 }
 
 .modal-content a {
@@ -194,3 +302,17 @@ header h1 { font-size: 1.4rem; letter-spacing: 0.02em; white-space: nowrap; }
 .modal-content a:hover { text-decoration: underline; }
 
 .modal-error { color: #999; font-size: 0.9rem; }
+
+.btn-profile {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.45rem 1rem;
+  background: #e94560;
+  color: #fff;
+  border-radius: 4px;
+  text-decoration: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: background 0.15s;
+}
+.btn-profile:hover { background: #c73652; color: #fff; }

@@ -8,18 +8,20 @@ function initDb() {
   db.pragma('journal_mode = WAL');
   db.exec(`
     CREATE TABLE IF NOT EXISTS articles (
-      id          INTEGER PRIMARY KEY AUTOINCREMENT,
-      url         TEXT    UNIQUE NOT NULL,
-      title       TEXT,
-      description TEXT,
-      author      TEXT,
-      source      TEXT,
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      url          TEXT    UNIQUE NOT NULL,
+      title        TEXT,
+      description  TEXT,
+      author       TEXT,
+      source       TEXT,
       published_at TEXT,
       url_to_image TEXT,
-      content     TEXT,
-      created_at  TEXT DEFAULT (datetime('now'))
+      content      TEXT,
+      category     TEXT DEFAULT 'General',
+      created_at   TEXT DEFAULT (datetime('now'))
     )
   `);
+  try { db.exec("ALTER TABLE articles ADD COLUMN category TEXT DEFAULT 'General'"); } catch {}
   return db;
 }
 
