@@ -5,6 +5,3 @@ node_modules
 *.sqlite3
 *.db-wal
 *.db-shm
-Technical_Design_Document.md
-claude_code_prompt.md
-claude_code_upgrades_prompt.md
