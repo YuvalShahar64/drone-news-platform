@@ -1,17 +1,23 @@
-const { getArticles } = require('../services/db');
-const { filterByKeyword } = require('../lib/keywordFilter');
+const { getArticles }     = require('../services/db');
+const { parsePagination } = require('../lib/parsePagination');
 
 function getNews(req, res) {
-  const articles = getArticles(req.query.category);
-  const filtered = filterByKeyword(articles, req.query.keyword);
-  if (filtered.length === 0 && !req.query.keyword && !req.query.category) {
+  const { limit, offset }   = parsePagination(req.query);
+  const { category, keyword } = req.query;
+  const { articles, total } = getArticles({ category, keyword, limit, offset });
+
+  if (total === 0 && !keyword && !category) {
     return res.json({
       ok: true,
       articles: [],
+      total: 0,
+      limit,
+      offset,
       message: 'No articles yet — the fetcher runs on startup and every 30 minutes.',
     });
   }
-  res.json({ ok: true, articles: filtered });
+
+  res.json({ ok: true, articles, total, limit, offset });
 }
 
 module.exports = { getNews };

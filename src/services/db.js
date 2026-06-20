@@ -3,21 +3,20 @@ const { normalizeUrl } = require('../lib/urlNormalizer');
 
 const db = initDb();
 
-// One-time migration: normalize any pre-existing URLs that weren't normalised
-// (e.g. rows with #fragment, utm_* params, or /amp).
+// One-time migration: normalize every stored URL and update any that differ.
+// Covers all normalizer rules (tracking params, #fragments, /amp, trailing
+// slashes) without relying on pattern-matching in SQL.
 // UPDATE OR IGNORE leaves the row unchanged when the normalized URL already
 // exists (UNIQUE conflict), so we explicitly delete that duplicate instead.
 (function migrateExistingUrls() {
-  const stale = db.prepare(
-    "SELECT id, url FROM articles WHERE url LIKE '%#%' OR url LIKE '%utm_%' OR url LIKE '%/amp'"
-  ).all();
+  const all   = db.prepare('SELECT id, url FROM articles').all();
+  const stale = all.filter(row => normalizeUrl(row.url) !== row.url);
   if (stale.length === 0) return;
   const update = db.prepare('UPDATE OR IGNORE articles SET url = ? WHERE id = ?');
   const del    = db.prepare('DELETE FROM articles WHERE id = ?');
   db.transaction(() => {
     for (const row of stale) {
       const norm = normalizeUrl(row.url);
-      if (norm === row.url) continue;
       const { changes } = update.run(norm, row.id);
       if (changes === 0) del.run(row.id); // normalized URL already exists — drop duplicate
     }
@@ -25,11 +24,29 @@ const db = initDb();
   console.log(`[db] Normalised ${stale.length} existing URL(s)`);
 })();
 
-function getArticles(category) {
+function getArticles({ category, keyword, limit, offset } = {}) {
+  const conditions = [];
+  const params     = {};
+
   if (category && category !== 'All') {
-    return db.prepare('SELECT * FROM articles WHERE category = ? ORDER BY published_at DESC').all(category);
+    conditions.push('category = @category');
+    params.category = category;
   }
-  return db.prepare('SELECT * FROM articles ORDER BY published_at DESC').all();
+  if (keyword) {
+    conditions.push('(title LIKE @pattern OR description LIKE @pattern)');
+    params.pattern = `%${keyword}%`;
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
+  const total = db.prepare(`SELECT COUNT(*) AS n FROM articles ${where}`)
+    .get(params).n;
+
+  const articles = db.prepare(
+    `SELECT * FROM articles ${where} ORDER BY published_at DESC LIMIT @limit OFFSET @offset`
+  ).all({ ...params, limit: limit ?? 20, offset: offset ?? 0 });
+
+  return { articles, total };
 }
 
 function upsertArticles(articles) {
@@ -52,4 +69,9 @@ function upsertArticles(articles) {
   upsertMany(articles);
 }
 
-module.exports = { getArticles, upsertArticles };
+function closeDb() {
+  db.close();
+  console.log('[db] Connection closed');
+}
+
+module.exports = { getArticles, upsertArticles, closeDb };

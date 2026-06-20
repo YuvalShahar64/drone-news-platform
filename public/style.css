@@ -148,13 +148,31 @@ header h1 { font-size: 1.4rem; letter-spacing: 0.02em; white-space: nowrap; }
   padding: 1.5rem 2rem;
 }
 
-.empty-msg {
+.state-msg {
   grid-column: 1 / -1;
   text-align: center;
   padding: 4rem 1rem;
   color: #888;
   font-size: 1.05rem;
 }
+
+.state-msg.loading { color: #bbb; }
+
+.state-msg.loading::before {
+  content: '';
+  display: block;
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e8e8ef;
+  border-top-color: #e94560;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 1rem;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.state-msg.error { color: #e94560; }
 
 /* ── Card ── */
 .card {
@@ -312,4 +330,26 @@ header h1 { font-size: 1.4rem; letter-spacing: 0.02em; white-space: nowrap; }
   font-weight: 600;
   transition: background 0.15s;
 }
-.btn-profile:hover { background: #c73652; color: #fff; }
+/* override .modal-content a specificity (0-1-1) */
+.modal-content .btn-profile,
+.modal-content .btn-profile:hover { color: #fff; }
+.btn-profile:hover { background: #c73652; }
+
+/* ── Pill toast ── */
+.pill-toast {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 100%;
+  text-align: center;
+  font-size: 0.78rem;
+  color: #777;
+  background: #fff;
+  padding: 0.28rem 2rem;
+  border-bottom: 1px solid #e8e8ef;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.35s ease;
+  z-index: 17;
+}
+.pill-toast.visible { opacity: 1; }

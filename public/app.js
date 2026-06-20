@@ -12,14 +12,17 @@ const breakingScroll = document.getElementById('breaking-scroll');
 let allArticles    = [];
 let activeCategory = 'All';
 let activeHours    = 24;
+let debounceTimer  = null;
+let toastTimer     = null;
 
 // Pill values ordered from most to least restrictive (0 = All time)
-const PILL_HOURS = [24, 168, 720, 0];
+const PILL_HOURS  = [24, 168, 720, 0];
+const PILL_LABELS = { 24: '24h', 168: '7 days', 720: '30 days', 0: 'all time' };
 
 // ── Fetch ────────────────────────────────────────────────────────────────────
 
 async function loadNews(keyword = '') {
-  articlesEl.innerHTML = '<p class="empty-msg">Loading…</p>';
+  renderLoading();
   const params = new URLSearchParams();
   if (keyword) params.set('keyword', keyword);
   try {
@@ -28,7 +31,7 @@ async function loadNews(keyword = '') {
     allArticles = data.articles || [];
     applyFilters();
   } catch {
-    articlesEl.innerHTML = '<p class="empty-msg">Failed to load news. Is the server running?</p>';
+    renderError('Could not load articles. Please try again.');
   }
 }
 
@@ -48,7 +51,15 @@ function setActivePill(hours) {
   });
 }
 
-function applyFilters() {
+function showPillToast(msg) {
+  const toast = document.getElementById('pill-toast');
+  toast.textContent = msg;
+  toast.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('visible'), 3000);
+}
+
+function applyFilters(showToast = false) {
   const now = Date.now();
 
   // Breaking news: articles < 24h from unfiltered set (ignores category/time filters)
@@ -68,6 +79,7 @@ function applyFilters() {
 
   // If no articles match, auto-advance to the next less restrictive pill
   if (byTime.length === 0 && byCat.length > 0) {
+    const requestedHours = activeHours;
     const idx = PILL_HOURS.indexOf(activeHours);
     for (let i = idx + 1; i < PILL_HOURS.length; i++) {
       const candidate = filterByTime(byCat, PILL_HOURS[i], now);
@@ -75,6 +87,11 @@ function applyFilters() {
         activeHours = PILL_HOURS[i];
         setActivePill(activeHours);
         byTime = candidate;
+        if (showToast) {
+          showPillToast(
+            `No articles in the last ${PILL_LABELS[requestedHours]} — showing ${PILL_LABELS[activeHours]} instead`
+          );
+        }
         break;
       }
     }
@@ -84,6 +101,14 @@ function applyFilters() {
 }
 
 // ── Renderers ────────────────────────────────────────────────────────────────
+
+function renderLoading() {
+  articlesEl.innerHTML = '<p class="state-msg loading">Loading articles…</p>';
+}
+
+function renderError(msg) {
+  articlesEl.innerHTML = `<p class="state-msg error">${esc(msg)}</p>`;
+}
 
 function renderBreaking(articles) {
   if (articles.length === 0) {
@@ -100,16 +125,21 @@ function renderBreaking(articles) {
 function renderGrid(articles) {
   if (articles.length === 0) {
     const msg = allArticles.length === 0
-      ? 'No articles yet — the fetcher runs on startup and every 30 minutes.'
+      ? 'No corresponding articles yet — check back soon.'
       : 'No articles match the current filters.';
-    articlesEl.innerHTML = `<p class="empty-msg">${esc(msg)}</p>`;
+    articlesEl.innerHTML = `<p class="state-msg">${esc(msg)}</p>`;
     return;
   }
   articlesEl.innerHTML = articles.map(buildCard).join('');
 }
 
 function buildCard(a) {
-  const date   = a.published_at ? new Date(a.published_at).toLocaleDateString() : '';
+  const date   = a.published_at
+    ? new Date(a.published_at).toLocaleString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric',
+        hour: '2-digit', minute: '2-digit',
+      })
+    : '';
   const meta   = [a.source, date].filter(Boolean).join(' · ');
   const imgTag = a.url_to_image
     ? `<img src="${esc(a.url_to_image)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
@@ -187,7 +217,8 @@ function esc(str) {
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 function escAttr(str) {
@@ -196,9 +227,16 @@ function escAttr(str) {
 
 // ── Event listeners ───────────────────────────────────────────────────────────
 
-searchBtn.addEventListener('click', () => loadNews(searchInput.value.trim()));
+searchBtn.addEventListener('click', () => {
+  clearTimeout(debounceTimer);
+  loadNews(searchInput.value.trim());
+});
 searchInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') loadNews(searchInput.value.trim());
+  if (e.key === 'Enter') { clearTimeout(debounceTimer); loadNews(searchInput.value.trim()); }
+});
+searchInput.addEventListener('input', () => {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(() => loadNews(searchInput.value.trim()), 300);
 });
 
 document.getElementById('category-tabs').addEventListener('click', e => {
@@ -215,7 +253,7 @@ document.getElementById('time-pills').addEventListener('click', e => {
   if (!pill) return;
   activeHours = Number(pill.dataset.hours);
   setActivePill(activeHours);
-  applyFilters();
+  applyFilters(true);
 });
 
 function closeModal() { modal.classList.add('hidden'); }

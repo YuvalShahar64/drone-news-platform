@@ -7,3 +7,4 @@ node_modules
 *.db-shm
 Technical_Design_Document.md
 claude_code_prompt.md
+claude_code_upgrades_prompt.md
