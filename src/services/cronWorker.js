@@ -2,11 +2,16 @@ const cron = require('node-cron');
 const { fetchAndStoreDroneNews } = require('./newsService');
 const { CRON_SCHEDULE } = require('../config');
 
-let task = null;
+let task        = null;
+let lastFetchAt = null;
+
+function runFetch() {
+  return fetchAndStoreDroneNews().then(() => { lastFetchAt = Date.now(); });
+}
 
 function startWorker() {
-  fetchAndStoreDroneNews();
-  task = cron.schedule(CRON_SCHEDULE, fetchAndStoreDroneNews);
+  runFetch();
+  task = cron.schedule(CRON_SCHEDULE, runFetch);
   console.log('[cron] Worker started — running now and every 30 minutes');
 }
 
@@ -17,4 +22,6 @@ function stopWorker() {
   }
 }
 
-module.exports = { startWorker, stopWorker };
+function getLastFetchAt() { return lastFetchAt; }
+
+module.exports = { startWorker, stopWorker, getLastFetchAt };

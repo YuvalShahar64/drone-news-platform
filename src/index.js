@@ -10,6 +10,7 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 app.use('/api', require('./middleware/rateLimit'));
 app.use('/api/health', require('./routes/health'));
+app.use('/api/status', require('./routes/status'));
 app.use('/api/news',   require('./routes/news'));
 app.use('/api/author', require('./routes/author'));
 

@@ -24,6 +24,7 @@ let activeHours    = 24;
 let debounceTimer  = null;
 let toastTimer     = null;
 let alertTimer     = null;
+let statusTimer    = null;
 
 const PILL_HOURS  = CONFIG.PILL_HOURS;
 const PILL_LABELS = CONFIG.PILL_LABELS;
@@ -419,6 +420,41 @@ function renderModal(data, name) {
   }
 }
 
+// ── Feed status label ─────────────────────────────────────────────────────────
+
+function relTime(ms) {
+  const diff = Math.round((Date.now() - ms) / 60_000);
+  if (diff < 1) return 'just now';
+  return `${diff} min ago`;
+}
+
+function inTime(ms) {
+  const diff = Math.round((ms - Date.now()) / 60_000);
+  if (diff <= 0) return 'any moment';
+  if (diff === 1) return 'in 1 min';
+  return `in ${diff} min`;
+}
+
+async function fetchAndRenderStatus() {
+  try {
+    const res  = await fetch('/api/status');
+    const data = await res.json();
+    if (!data.ok) return;
+    const el       = document.getElementById('feed-status');
+    const lastText = data.lastFetchAt != null ? relTime(data.lastFetchAt) : 'pending…';
+    const nextText = inTime(data.nextFetchAt);
+    el.innerHTML =
+      `<span>Last fed <strong>${esc(lastText)}</strong></span>` +
+      `<br><span>Next <strong>${esc(nextText)}</strong></span>`;
+  } catch {}
+}
+
+function scheduleFeedStatus() {
+  fetchAndRenderStatus();
+  clearInterval(statusTimer);
+  statusTimer = setInterval(fetchAndRenderStatus, 60_000);
+}
+
 // ── Escape helpers ────────────────────────────────────────────────────────────
 
 function esc(str) {
@@ -537,3 +573,4 @@ if (load('dn_panelOpen', false)) {
   document.getElementById('panel-toggle').classList.add('panel-is-open');
 }
 loadNews();
+scheduleFeedStatus();

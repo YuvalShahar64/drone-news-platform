@@ -57,6 +57,21 @@ header h1 {
 .search-bar button:hover  { background: #c73652; }
 .search-bar button:active { transform: scale(0.97); }
 
+/* ── Feed status label ── */
+.feed-status {
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  line-height: 1.55;
+  text-align: right;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.feed-status strong {
+  color: rgba(255, 255, 255, 0.88);
+  font-weight: 600;
+}
+@media (max-width: 640px) { .feed-status { display: none; } }
+
 /* ── Search suggestions ── */
 .search-suggestions {
   display: none;
