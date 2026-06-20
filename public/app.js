@@ -56,6 +56,12 @@ function trackArticleClick(article) {
       save('dn_readCategories', cats);
     }
   }
+
+  const seen = load('dn_seenUrls', []);
+  if (!seen.includes(article.url)) {
+    save('dn_seenUrls', [article.url, ...seen].slice(0, 500));
+  }
+
   renderPanel();
 }
 
@@ -249,11 +255,6 @@ function applyFilters(showToast = false) {
     const catArticles = allArticles.filter(a =>
       topCats.includes(a.category) && !seenSet.has(a.url) && !claimedUrls.has(a.url)
     );
-
-    // Mark all shown as seen (cap at 500 to avoid localStorage bloat)
-    const allShown = [...searchGroups.flatMap(g => g.articles), ...catArticles];
-    const merged   = [...new Set([...allShown.map(a => a.url), ...seenUrls])].slice(0, 500);
-    save('dn_seenUrls', merged);
 
     renderForYou(searchGroups, catArticles);
     return;
