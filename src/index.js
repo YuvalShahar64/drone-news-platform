@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const path    = require('path');
+const { exec } = require('child_process');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -17,6 +18,12 @@ app.use('/api/author', require('./routes/author'));
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   require('./services/cronWorker').startWorker();
+  const url = `http://localhost:${PORT}`;
+  const cmd =
+    process.platform === 'win32'  ? `start chrome "${url}"` :
+    process.platform === 'darwin' ? `open -a "Google Chrome" "${url}"` :
+                                    `xdg-open "${url}"`;
+  exec(cmd);
 });
 
 let shuttingDown = false;
