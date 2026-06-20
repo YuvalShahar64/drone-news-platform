@@ -11,9 +11,11 @@ app.use(express.static(path.join(__dirname, '../public')));
 
 app.use('/api', require('./middleware/rateLimit'));
 app.use('/api/health', require('./routes/health'));
-app.use('/api/status', require('./routes/status'));
-app.use('/api/news',   require('./routes/news'));
-app.use('/api/author', require('./routes/author'));
+app.use('/api/status',  require('./routes/status'));
+app.use('/api/refresh', require('./routes/refresh'));
+app.use('/api/mock',    require('./routes/mock'));
+app.use('/api/news',    require('./routes/news'));
+app.use('/api/author',  require('./routes/author'));
 
 const server = app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

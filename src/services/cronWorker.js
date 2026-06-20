@@ -24,4 +24,4 @@ function stopWorker() {
 
 function getLastFetchAt() { return lastFetchAt; }
 
-module.exports = { startWorker, stopWorker, getLastFetchAt };
+module.exports = { startWorker, stopWorker, getLastFetchAt, runFetch };

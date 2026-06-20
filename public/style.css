@@ -57,6 +57,35 @@ header h1 {
 .search-bar button:hover  { background: #c73652; }
 .search-bar button:active { transform: scale(0.97); }
 
+/* ── Dev action buttons (mock + refresh) ── */
+.header-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.header-action-btn {
+  padding: 0.3rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+.header-action-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+.header-action-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (max-width: 640px) { .header-actions { display: none; } }
+
 /* ── Feed status label ── */
 .feed-status {
   font-size: 0.7rem;
@@ -65,7 +94,6 @@ header h1 {
   text-align: right;
   white-space: nowrap;
   flex-shrink: 0;
-  margin-left: auto;
 }
 .feed-status strong {
   color: rgba(255, 255, 255, 0.88);

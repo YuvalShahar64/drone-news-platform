@@ -558,6 +558,29 @@ document.getElementById('history-panel').addEventListener('click', e => {
 document.getElementById('foryou-alert-btn').addEventListener('click',     switchToForYou);
 document.getElementById('foryou-alert-dismiss').addEventListener('click', dismissAlert);
 
+// Dev tools
+document.getElementById('btn-add-mock').addEventListener('click', async () => {
+  const kw = window.prompt('Keywords for the mock article (these appear in title & description):');
+  if (!kw || !kw.trim()) return;
+  await fetch('/api/mock', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keywords: kw.trim() }),
+  });
+  loadNews();
+});
+
+document.getElementById('btn-refresh').addEventListener('click', async () => {
+  const btn = document.getElementById('btn-refresh');
+  btn.disabled = true;
+  btn.textContent = '↻ …';
+  await fetch('/api/refresh', { method: 'POST' }).catch(() => {});
+  btn.disabled = false;
+  btn.textContent = '↻ Refresh';
+  loadNews();
+  scheduleFeedStatus();
+});
+
 // Modal
 function closeModal() { modal.classList.add('hidden'); }
 modalClose.addEventListener('click', closeModal);
