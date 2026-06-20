@@ -249,9 +249,10 @@ function applyFilters(showToast = false) {
       topCats.includes(a.category) && !seenSet.has(a.url) && !claimedUrls.has(a.url)
     );
 
-    // Mark all shown as seen
+    // Mark all shown as seen (cap at 500 to avoid localStorage bloat)
     const allShown = [...searchGroups.flatMap(g => g.articles), ...catArticles];
-    save('dn_seenUrls', [...new Set([...seenUrls, ...allShown.map(a => a.url)])]);
+    const merged   = [...new Set([...allShown.map(a => a.url), ...seenUrls])].slice(0, 500);
+    save('dn_seenUrls', merged);
 
     renderForYou(searchGroups, catArticles);
     return;
@@ -365,13 +366,13 @@ function renderForYou(searchGroups, catArticles) {
   let html = '';
 
   for (const { term, articles } of searchGroups) {
-    html += `<h2 class="foryou-group-header" style="grid-column:1/-1">Because you searched: <em>"${esc(term)}"</em></h2>`;
+    html += `<h2 class="foryou-group-header">Because you searched: <em>"${esc(term)}"</em></h2>`;
     html += articles.map(a => buildCard(a, true)).join('');
   }
 
   if (catArticles.length > 0) {
     if (html) {
-      html += `<h2 class="foryou-group-header foryou-group-header--more" style="grid-column:1/-1">New in your top categories</h2>`;
+      html += `<h2 class="foryou-group-header foryou-group-header--more">New in your top categories</h2>`;
     }
     html += catArticles.map(a => buildCard(a)).join('');
   }
