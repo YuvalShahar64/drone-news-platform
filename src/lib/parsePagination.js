@@ -1,5 +1,4 @@
-const DEFAULT_LIMIT = 20;
-const MAX_LIMIT     = 100;
+const { PAGINATION_DEFAULT_LIMIT: DEFAULT_LIMIT, PAGINATION_MAX_LIMIT: MAX_LIMIT } = require('../config');
 
 function parsePagination(query) {
   let limit  = parseInt(query.limit,  10);

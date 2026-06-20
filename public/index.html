@@ -8,9 +8,11 @@
 </head>
 <body>
   <header>
+    <button id="panel-toggle" class="panel-toggle" aria-label="Toggle history">&#9776;</button>
     <h1>Drone News</h1>
     <div class="search-bar">
-      <input type="text" id="search-input" placeholder="Search articles…" />
+      <input type="text" id="search-input" placeholder="Search articles…" autocomplete="off" />
+      <ul id="search-suggestions" class="search-suggestions" role="listbox"></ul>
       <button id="search-btn">Search</button>
     </div>
   </header>
@@ -22,14 +24,15 @@
 
   <div id="filter-bar" class="filter-bar">
     <div id="category-tabs" class="category-tabs" role="tablist" aria-label="Filter by category">
-      <button class="tab active" data-category="All"                     role="tab">All</button>
-      <button class="tab"        data-category="Military &amp; Defense"   role="tab">Military &amp; Defense</button>
-      <button class="tab"        data-category="Delivery &amp; Logistics" role="tab">Delivery &amp; Logistics</button>
-      <button class="tab"        data-category="Racing &amp; Sport"       role="tab">Racing &amp; Sport</button>
-      <button class="tab"        data-category="Regulations &amp; Policy" role="tab">Regulations &amp; Policy</button>
-      <button class="tab"        data-category="Technology &amp; Innovation" role="tab">Technology &amp; Innovation</button>
-      <button class="tab"        data-category="Surveillance &amp; Security" role="tab">Surveillance &amp; Security</button>
-      <button class="tab"        data-category="General"                  role="tab">General</button>
+      <button class="tab tab-foryou" data-category="__foryou__"           role="tab">For You</button>
+      <button class="tab active"     data-category="All"                   role="tab">All</button>
+      <button class="tab"            data-category="Military &amp; Defense"   role="tab">Military &amp; Defense</button>
+      <button class="tab"            data-category="Delivery &amp; Logistics" role="tab">Delivery &amp; Logistics</button>
+      <button class="tab"            data-category="Racing &amp; Sport"       role="tab">Racing &amp; Sport</button>
+      <button class="tab"            data-category="Regulations &amp; Policy" role="tab">Regulations &amp; Policy</button>
+      <button class="tab"            data-category="Technology &amp; Innovation" role="tab">Technology &amp; Innovation</button>
+      <button class="tab"            data-category="Surveillance &amp; Security" role="tab">Surveillance &amp; Security</button>
+      <button class="tab"            data-category="General"               role="tab">General</button>
     </div>
     <div id="time-pills" class="time-pills" aria-label="Filter by time">
       <button class="pill active" data-hours="24">24h</button>
@@ -40,7 +43,30 @@
     <div id="pill-toast" class="pill-toast" role="status" aria-live="polite"></div>
   </div>
 
+  <!-- History panel (slide-in from left) -->
+  <aside id="history-panel" class="history-panel" aria-label="History">
+    <div class="panel-header">
+      <span>History</span>
+      <button id="panel-close" aria-label="Close">&#10005;</button>
+    </div>
+    <section class="panel-section">
+      <h3>Recent Articles</h3>
+      <ul id="recent-articles-list"></ul>
+    </section>
+    <section class="panel-section">
+      <h3>Recent Authors</h3>
+      <ul id="recent-authors-list"></ul>
+    </section>
+  </aside>
+
   <main id="articles"></main>
+
+  <!-- For You alert (top-right) -->
+  <div id="foryou-alert" class="foryou-alert hidden" role="alert">
+    <span id="foryou-alert-msg"></span>
+    <button id="foryou-alert-btn">View For You &rarr;</button>
+    <button id="foryou-alert-dismiss" aria-label="Dismiss">&#10005;</button>
+  </div>
 
   <div id="modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content">
@@ -49,6 +75,7 @@
     </div>
   </div>
 
+  <script src="config.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

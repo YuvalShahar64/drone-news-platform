@@ -1,6 +1,7 @@
 const { extractAuthorLink } = require('../lib/authorLinkExtractor');
+const { SCRAPER_TIMEOUT_MS, SCRAPER_UA } = require('../config');
 
-const SCRAPE_TIMEOUT_MS = 6000;
+const SCRAPE_TIMEOUT_MS = SCRAPER_TIMEOUT_MS;
 
 async function scrapeAuthorLink(articleUrl) {
   const controller = new AbortController();
@@ -9,7 +10,7 @@ async function scrapeAuthorLink(articleUrl) {
     const res = await fetch(articleUrl, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; DroneNewsBot/1.0)',
+        'User-Agent': SCRAPER_UA,
         'Accept': 'text/html',
       },
       redirect: 'follow',

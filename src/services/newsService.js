@@ -1,12 +1,13 @@
 const { upsertArticles } = require('./db');
 const { classifyArticle } = require('../lib/categoryClassifier');
 const { normalizeUrl }    = require('../lib/urlNormalizer');
+const { NEWS_FETCH_TIMEOUT_MS } = require('../config');
 
 async function fetchAndStoreDroneNews() {
   const apiKey = process.env.NEWS_API_KEY;
   const url = `https://newsapi.org/v2/everything?q=drone&pageSize=100&apiKey=${apiKey}`;
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const timer = setTimeout(() => controller.abort(), NEWS_FETCH_TIMEOUT_MS);
   try {
     const res = await fetch(url, { signal: controller.signal });
     const data = await res.json();

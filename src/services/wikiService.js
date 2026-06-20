@@ -1,8 +1,7 @@
 const { parseWikiResponse } = require('../lib/wikiParser');
 const { buildCacheKey, isFresh } = require('../lib/wikiCache');
 
-const HIT_TTL  = 60 * 60 * 1000;      // 1 hour  — successful summaries
-const MISS_TTL =  5 * 60 * 1000;      // 5 min   — not-found / fallback results
+const { WIKI_HIT_TTL_MS: HIT_TTL, WIKI_MISS_TTL_MS: MISS_TTL } = require('../config');
 
 const cache = new Map();
 

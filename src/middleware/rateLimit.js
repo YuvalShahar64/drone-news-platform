@@ -1,7 +1,6 @@
 const { isRateLimited, pruneTimestamps } = require('../lib/rateLimiter');
 
-const WINDOW_MS    = parseInt(process.env.RATE_LIMIT_WINDOW_MS, 10) || 60_000;
-const MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX,       10) || 60;
+const { RATE_LIMIT_WINDOW_MS: WINDOW_MS, RATE_LIMIT_MAX: MAX_REQUESTS } = require('../config');
 
 const store = new Map(); // ip → number[]
 

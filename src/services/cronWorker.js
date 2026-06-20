@@ -1,11 +1,12 @@
 const cron = require('node-cron');
 const { fetchAndStoreDroneNews } = require('./newsService');
+const { CRON_SCHEDULE } = require('../config');
 
 let task = null;
 
 function startWorker() {
   fetchAndStoreDroneNews();
-  task = cron.schedule('*/30 * * * *', fetchAndStoreDroneNews);
+  task = cron.schedule(CRON_SCHEDULE, fetchAndStoreDroneNews);
   console.log('[cron] Worker started — running now and every 30 minutes');
 }
 

@@ -1,25 +1,173 @@
-const articlesEl   = document.getElementById('articles');
-const searchInput  = document.getElementById('search-input');
-const searchBtn    = document.getElementById('search-btn');
-const modal        = document.getElementById('modal');
-const modalBody    = document.getElementById('modal-body');
-const modalClose   = document.getElementById('modal-close');
+const articlesEl     = document.getElementById('articles');
+const searchInput    = document.getElementById('search-input');
+const searchBtn      = document.getElementById('search-btn');
+const modal          = document.getElementById('modal');
+const modalBody      = document.getElementById('modal-body');
+const modalClose     = document.getElementById('modal-close');
 const breakingStrip  = document.getElementById('breaking-strip');
 const breakingScroll = document.getElementById('breaking-scroll');
 
-// ── State ───────────────────────────────────────────────────────────────────
+// ── localStorage helpers ──────────────────────────────────────────────────────
+
+function load(key, fallback) {
+  try { return JSON.parse(localStorage.getItem(key)) ?? fallback; } catch { return fallback; }
+}
+function save(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); } catch {}
+}
+
+// ── State ─────────────────────────────────────────────────────────────────────
 
 let allArticles    = [];
 let activeCategory = 'All';
 let activeHours    = 24;
 let debounceTimer  = null;
 let toastTimer     = null;
+let alertTimer     = null;
 
-// Pill values ordered from most to least restrictive (0 = All time)
-const PILL_HOURS  = [24, 168, 720, 0];
-const PILL_LABELS = { 24: '24h', 168: '7 days', 720: '30 days', 0: 'all time' };
+const PILL_HOURS  = CONFIG.PILL_HOURS;
+const PILL_LABELS = CONFIG.PILL_LABELS;
 
-// ── Fetch ────────────────────────────────────────────────────────────────────
+const CATEGORY_CLASS = {
+  'Military & Defense':        'cat-military',
+  'Delivery & Logistics':      'cat-delivery',
+  'Racing & Sport':            'cat-racing',
+  'Regulations & Policy':      'cat-regulations',
+  'Technology & Innovation':   'cat-technology',
+  'Surveillance & Security':   'cat-surveillance',
+  'General':                   'cat-general',
+};
+
+// ── Tracking ──────────────────────────────────────────────────────────────────
+
+function trackArticleClick(article) {
+  let recent = load('dn_recentArticles', []);
+  recent = [
+    { url: article.url, title: article.title, source: article.source, published_at: article.published_at, category: article.category },
+    ...recent.filter(r => r.url !== article.url),
+  ].slice(0, CONFIG.MAX_RECENT_ARTICLES);
+  save('dn_recentArticles', recent);
+
+  if (article.category) {
+    let cats = load('dn_readCategories', []);
+    if (!cats.includes(article.category)) {
+      cats.push(article.category);
+      save('dn_readCategories', cats);
+    }
+  }
+  renderPanel();
+}
+
+function trackAuthorView(name, articleUrl) {
+  let recent = load('dn_recentAuthors', []);
+  recent = [{ name, articleUrl }, ...recent.filter(r => r.name !== name)].slice(0, CONFIG.MAX_RECENT_AUTHORS);
+  save('dn_recentAuthors', recent);
+  renderPanel();
+}
+
+function trackSearch(keyword) {
+  if (!keyword) return;
+  let recent = load('dn_recentSearches', []);
+  recent = [keyword, ...recent.filter(s => s !== keyword)].slice(0, CONFIG.MAX_RECENT_SEARCHES);
+  save('dn_recentSearches', recent);
+}
+
+// ── History panel ─────────────────────────────────────────────────────────────
+
+function renderPanel() {
+  const articlesList = document.getElementById('recent-articles-list');
+  const authorsList  = document.getElementById('recent-authors-list');
+  const articles     = load('dn_recentArticles', []);
+  const authors      = load('dn_recentAuthors',  []);
+
+  articlesList.innerHTML = articles.length
+    ? articles.map(a =>
+        `<li class="panel-item">
+           <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer" title="${escAttr(a.title)}">${esc(a.title || 'Untitled')}</a>
+           ${a.source ? `<span class="panel-item-meta">${esc(a.source)}</span>` : ''}
+         </li>`
+      ).join('')
+    : '<li class="panel-empty">Nothing yet.</li>';
+
+  authorsList.innerHTML = authors.length
+    ? authors.map(a =>
+        `<li class="panel-item">
+           <button class="panel-author-btn" data-author="${escAttr(a.name)}" data-article-url="${escAttr(a.articleUrl)}">${esc(a.name)}</button>
+         </li>`
+      ).join('')
+    : '<li class="panel-empty">Nothing yet.</li>';
+}
+
+function togglePanel(open) {
+  const panel  = document.getElementById('history-panel');
+  const toggle = document.getElementById('panel-toggle');
+  const isOpen = open !== undefined ? open : !panel.classList.contains('open');
+  panel.classList.toggle('open', isOpen);
+  toggle.classList.toggle('panel-is-open', isOpen);
+  save('dn_panelOpen', isOpen);
+}
+
+// ── Search suggestions ────────────────────────────────────────────────────────
+
+function renderSuggestions(query) {
+  const list    = document.getElementById('search-suggestions');
+  const recent  = load('dn_recentSearches', []);
+  const q       = query.toLowerCase();
+  const matches = q ? recent.filter(s => s.toLowerCase().includes(q)) : recent;
+
+  if (matches.length === 0) { list.classList.remove('visible'); return; }
+  list.innerHTML = matches.map(s =>
+    `<li class="suggestion-item" role="option">${esc(s)}</li>`
+  ).join('');
+  list.classList.add('visible');
+}
+
+function hideSuggestions() {
+  document.getElementById('search-suggestions').classList.remove('visible');
+}
+
+// ── For You alert ─────────────────────────────────────────────────────────────
+
+function topCategories(n) {
+  const counts = {};
+  for (const a of load('dn_recentArticles', [])) {
+    if (a.category) counts[a.category] = (counts[a.category] || 0) + 1;
+  }
+  return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, n).map(([cat]) => cat);
+}
+
+function checkForYouAlert() {
+  const topCats  = topCategories(2);
+  const seenUrls = load('dn_seenUrls', []);
+  if (topCats.length === 0) return;
+
+  const seenSet = new Set(seenUrls);
+  const fresh = allArticles.filter(a => topCats.includes(a.category) && !seenSet.has(a.url));
+  if (fresh.length === 0) return;
+
+  const alertEl = document.getElementById('foryou-alert');
+  document.getElementById('foryou-alert-msg').textContent =
+    `${fresh.length} new article${fresh.length > 1 ? 's' : ''} in your categories`;
+  alertEl.classList.remove('hidden');
+  clearTimeout(alertTimer);
+  alertTimer = setTimeout(() => alertEl.classList.add('hidden'), CONFIG.FORYOU_ALERT_MS);
+}
+
+function dismissAlert() {
+  document.getElementById('foryou-alert').classList.add('hidden');
+  clearTimeout(alertTimer);
+}
+
+function switchToForYou() {
+  dismissAlert();
+  activeCategory = '__foryou__';
+  document.querySelectorAll('.tab').forEach(t =>
+    t.classList.toggle('active', t.dataset.category === '__foryou__')
+  );
+  applyFilters();
+}
+
+// ── Fetch ─────────────────────────────────────────────────────────────────────
 
 async function loadNews(keyword = '') {
   renderLoading();
@@ -30,12 +178,13 @@ async function loadNews(keyword = '') {
     const data = await res.json();
     allArticles = data.articles || [];
     applyFilters();
+    checkForYouAlert();
   } catch {
     renderError('Could not load articles. Please try again.');
   }
 }
 
-// ── Filtering ────────────────────────────────────────────────────────────────
+// ── Filtering ─────────────────────────────────────────────────────────────────
 
 function filterByTime(articles, hours, now) {
   if (hours === 0) return articles;
@@ -56,28 +205,66 @@ function showPillToast(msg) {
   toast.textContent = msg;
   toast.classList.add('visible');
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => toast.classList.remove('visible'), 3000);
+  toastTimer = setTimeout(() => toast.classList.remove('visible'), CONFIG.PILL_TOAST_MS);
 }
 
 function applyFilters(showToast = false) {
   const now = Date.now();
 
-  // Breaking news: articles < 24h from unfiltered set (ignores category/time filters)
+  // Breaking news strip (always from full unfiltered set)
   const cutoff24h = now - 24 * 36e5;
-  const breaking = allArticles.filter(
+  renderBreaking(allArticles.filter(
     a => a.published_at && new Date(a.published_at).getTime() >= cutoff24h
-  );
-  renderBreaking(breaking);
+  ));
+
+  // For You tab
+  if (activeCategory === '__foryou__') {
+    const topCats = topCategories(2);
+    if (topCats.length === 0) {
+      articlesEl.innerHTML = '<p class="state-msg">Read some articles first to personalise your feed.</p>';
+      return;
+    }
+    const seenUrls = load('dn_seenUrls', []);
+    const seenSet  = new Set(seenUrls);
+    const searches = load('dn_recentSearches', []);
+
+    // Search groups: unread articles (any category) matching each search term
+    const claimedUrls = new Set();
+    const searchGroups = [];
+    for (const term of searches) {
+      const lower   = term.toLowerCase();
+      const matched = allArticles.filter(a =>
+        !seenSet.has(a.url) &&
+        !claimedUrls.has(a.url) &&
+        ((a.title || '').toLowerCase().includes(lower) ||
+         (a.description || '').toLowerCase().includes(lower))
+      );
+      if (matched.length === 0) continue;
+      matched.forEach(a => claimedUrls.add(a.url));
+      searchGroups.push({ term, articles: matched });
+    }
+
+    // Category articles: unread, in top 2 categories, not already in a search group
+    const catArticles = allArticles.filter(a =>
+      topCats.includes(a.category) && !seenSet.has(a.url) && !claimedUrls.has(a.url)
+    );
+
+    // Mark all shown as seen
+    const allShown = [...searchGroups.flatMap(g => g.articles), ...catArticles];
+    save('dn_seenUrls', [...new Set([...seenUrls, ...allShown.map(a => a.url)])]);
+
+    renderForYou(searchGroups, catArticles);
+    return;
+  }
 
   // Category filter
   const byCat = activeCategory === 'All'
     ? allArticles
     : allArticles.filter(a => a.category === activeCategory);
 
-  // Time filter
+  // Time filter with auto-advance
   let byTime = filterByTime(byCat, activeHours, now);
 
-  // If no articles match, auto-advance to the next less restrictive pill
   if (byTime.length === 0 && byCat.length > 0) {
     const requestedHours = activeHours;
     const idx = PILL_HOURS.indexOf(activeHours);
@@ -88,9 +275,7 @@ function applyFilters(showToast = false) {
         setActivePill(activeHours);
         byTime = candidate;
         if (showToast) {
-          showPillToast(
-            `No articles in the last ${PILL_LABELS[requestedHours]} — showing ${PILL_LABELS[activeHours]} instead`
-          );
+          showPillToast(`No articles in the last ${PILL_LABELS[requestedHours]} — showing ${PILL_LABELS[activeHours]} instead`);
         }
         break;
       }
@@ -100,7 +285,7 @@ function applyFilters(showToast = false) {
   renderGrid(byTime);
 }
 
-// ── Renderers ────────────────────────────────────────────────────────────────
+// ── Renderers ─────────────────────────────────────────────────────────────────
 
 function renderLoading() {
   articlesEl.innerHTML = '<p class="state-msg loading">Loading articles…</p>';
@@ -111,10 +296,7 @@ function renderError(msg) {
 }
 
 function renderBreaking(articles) {
-  if (articles.length === 0) {
-    breakingStrip.classList.add('hidden');
-    return;
-  }
+  if (articles.length === 0) { breakingStrip.classList.add('hidden'); return; }
   breakingStrip.classList.remove('hidden');
   breakingScroll.innerHTML = articles.map((a, i) =>
     (i > 0 ? '<span class="breaking-sep" aria-hidden="true">·</span>' : '') +
@@ -125,36 +307,43 @@ function renderBreaking(articles) {
 function renderGrid(articles) {
   if (articles.length === 0) {
     const msg = allArticles.length === 0
-      ? 'No corresponding articles yet — check back soon.'
+      ? 'No articles yet — check back soon.'
       : 'No articles match the current filters.';
     articlesEl.innerHTML = `<p class="state-msg">${esc(msg)}</p>`;
     return;
   }
-  articlesEl.innerHTML = articles.map(buildCard).join('');
+  articlesEl.innerHTML = articles.map(a => buildCard(a)).join('');
 }
 
-function buildCard(a) {
+function buildCard(a, highlighted = false) {
   const date   = a.published_at
     ? new Date(a.published_at).toLocaleString(undefined, {
         month: 'short', day: 'numeric', year: 'numeric',
         hour: '2-digit', minute: '2-digit',
       })
     : '';
-  const meta   = [a.source, date].filter(Boolean).join(' · ');
-  const imgTag = a.url_to_image
+  const meta      = [a.source, date].filter(Boolean).join(' · ');
+  const imgTag    = a.url_to_image
     ? `<img src="${esc(a.url_to_image)}" alt="" loading="lazy" onerror="this.style.display='none'" />`
     : '';
-  const categoryTag = a.category
-    ? `<span class="card-category">${esc(a.category)}</span>`
+  const catClass  = CATEGORY_CLASS[a.category] || 'cat-general';
+  const catTag    = a.category
+    ? `<span class="card-category ${catClass}">${esc(a.category)}</span>`
     : '';
   const authorBtn = a.author
     ? `<button class="btn-author" data-author="${escAttr(a.author)}" data-article-url="${escAttr(a.url)}">Author Info</button>`
     : '';
+  const extraClass = highlighted ? ' card-highlighted' : '';
   return `
-    <article class="card">
+    <article class="card${extraClass}"
+      data-url="${escAttr(a.url)}"
+      data-title="${escAttr(a.title)}"
+      data-source="${escAttr(a.source)}"
+      data-published="${escAttr(a.published_at)}"
+      data-category="${escAttr(a.category)}">
       ${imgTag}
       <div class="card-body">
-        ${categoryTag}
+        ${catTag}
         <div class="card-meta">${esc(meta)}</div>
         <div class="card-title">
           <a href="${esc(a.url)}" target="_blank" rel="noopener noreferrer">${esc(a.title || 'Untitled')}</a>
@@ -168,9 +357,32 @@ function buildCard(a) {
     </article>`;
 }
 
-// ── Author modal ─────────────────────────────────────────────────────────────
+function renderForYou(searchGroups, catArticles) {
+  if (searchGroups.length === 0 && catArticles.length === 0) {
+    articlesEl.innerHTML = '<p class="state-msg">You\'re all caught up — check back later for new articles.</p>';
+    return;
+  }
+  let html = '';
+
+  for (const { term, articles } of searchGroups) {
+    html += `<h2 class="foryou-group-header" style="grid-column:1/-1">Because you searched: <em>"${esc(term)}"</em></h2>`;
+    html += articles.map(a => buildCard(a, true)).join('');
+  }
+
+  if (catArticles.length > 0) {
+    if (html) {
+      html += `<h2 class="foryou-group-header foryou-group-header--more" style="grid-column:1/-1">New in your top categories</h2>`;
+    }
+    html += catArticles.map(a => buildCard(a)).join('');
+  }
+
+  articlesEl.innerHTML = html;
+}
+
+// ── Author modal ──────────────────────────────────────────────────────────────
 
 async function showAuthorInfo(name, articleUrl) {
+  trackAuthorView(name, articleUrl);
   modalBody.innerHTML = '<p>Loading…</p>';
   modal.classList.remove('hidden');
   try {
@@ -192,21 +404,17 @@ function renderModal(data, name) {
     modalBody.innerHTML = `
       <h2>${esc(name)}</h2>
       <p>An author profile page was found for this article.</p>
-      <a class="btn-profile" href="${esc(data.authorUrl)}" target="_blank" rel="noopener noreferrer">View Author Profile →</a>`;
+      <a class="btn-profile" href="${esc(data.authorUrl)}" target="_blank" rel="noopener noreferrer">View Author Profile &rarr;</a>`;
     return;
   }
   if (data.type === 'wiki') {
-    const thumb = data.thumbnail
+    const thumb    = data.thumbnail
       ? `<img class="modal-thumb" src="${esc(data.thumbnail)}" alt="${escAttr(data.title)}" />`
       : '';
     const wikiLink = data.url
-      ? `<a href="${esc(data.url)}" target="_blank" rel="noopener noreferrer">Read on Wikipedia →</a>`
+      ? `<a href="${esc(data.url)}" target="_blank" rel="noopener noreferrer">Read on Wikipedia &rarr;</a>`
       : '';
-    modalBody.innerHTML = `
-      ${thumb}
-      <h2>${esc(data.title)}</h2>
-      <p>${esc(data.summary)}</p>
-      ${wikiLink}`;
+    modalBody.innerHTML = `${thumb}<h2>${esc(data.title)}</h2><p>${esc(data.summary)}</p>${wikiLink}`;
   }
 }
 
@@ -227,18 +435,43 @@ function escAttr(str) {
 
 // ── Event listeners ───────────────────────────────────────────────────────────
 
+// Search
 searchBtn.addEventListener('click', () => {
   clearTimeout(debounceTimer);
-  loadNews(searchInput.value.trim());
+  const kw = searchInput.value.trim();
+  trackSearch(kw);
+  hideSuggestions();
+  loadNews(kw);
 });
 searchInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { clearTimeout(debounceTimer); loadNews(searchInput.value.trim()); }
+  if (e.key === 'Enter') {
+    clearTimeout(debounceTimer);
+    const kw = searchInput.value.trim();
+    trackSearch(kw);
+    hideSuggestions();
+    loadNews(kw);
+  }
+  if (e.key === 'Escape') hideSuggestions();
 });
 searchInput.addEventListener('input', () => {
   clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => loadNews(searchInput.value.trim()), 300);
+  renderSuggestions(searchInput.value.trim());
+  debounceTimer = setTimeout(() => loadNews(searchInput.value.trim()), CONFIG.DEBOUNCE_MS);
+});
+searchInput.addEventListener('focus', () => renderSuggestions(searchInput.value.trim()));
+searchInput.addEventListener('blur',  () => setTimeout(hideSuggestions, 150));
+
+document.getElementById('search-suggestions').addEventListener('click', e => {
+  const item = e.target.closest('.suggestion-item');
+  if (!item) return;
+  const term = item.textContent;
+  searchInput.value = term;
+  hideSuggestions();
+  trackSearch(term);
+  loadNews(term);
 });
 
+// Category tabs
 document.getElementById('category-tabs').addEventListener('click', e => {
   const tab = e.target.closest('.tab');
   if (!tab) return;
@@ -248,6 +481,7 @@ document.getElementById('category-tabs').addEventListener('click', e => {
   applyFilters();
 });
 
+// Time pills
 document.getElementById('time-pills').addEventListener('click', e => {
   const pill = e.target.closest('.pill');
   if (!pill) return;
@@ -256,16 +490,49 @@ document.getElementById('time-pills').addEventListener('click', e => {
   applyFilters(true);
 });
 
+// Article grid interactions
+articlesEl.addEventListener('click', e => {
+  const link = e.target.closest('.card-title a');
+  if (link) {
+    const card = link.closest('.card');
+    if (card) {
+      trackArticleClick({
+        url:          card.dataset.url,
+        title:        card.dataset.title,
+        source:       card.dataset.source,
+        published_at: card.dataset.published,
+        category:     card.dataset.category,
+      });
+    }
+  }
+  const btn = e.target.closest('.btn-author');
+  if (btn) showAuthorInfo(btn.dataset.author, btn.dataset.articleUrl);
+});
+
+// History panel
+document.getElementById('panel-toggle').addEventListener('click', () => togglePanel());
+document.getElementById('panel-close').addEventListener('click',  () => togglePanel(false));
+document.getElementById('history-panel').addEventListener('click', e => {
+  const btn = e.target.closest('.panel-author-btn');
+  if (btn) showAuthorInfo(btn.dataset.author, btn.dataset.articleUrl);
+});
+
+// For You alert
+document.getElementById('foryou-alert-btn').addEventListener('click',     switchToForYou);
+document.getElementById('foryou-alert-dismiss').addEventListener('click', dismissAlert);
+
+// Modal
 function closeModal() { modal.classList.add('hidden'); }
 modalClose.addEventListener('click', closeModal);
 modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
-articlesEl.addEventListener('click', e => {
-  const btn = e.target.closest('.btn-author');
-  if (btn) showAuthorInfo(btn.dataset.author, btn.dataset.articleUrl);
-});
-
 // ── Init ──────────────────────────────────────────────────────────────────────
 
+renderPanel();
+if (load('dn_panelOpen', false)) {
+  // Open without triggering the CSS transition on first paint
+  document.getElementById('history-panel').classList.add('open');
+  document.getElementById('panel-toggle').classList.add('panel-is-open');
+}
 loadNews();
