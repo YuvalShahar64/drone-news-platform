@@ -25,6 +25,10 @@ let debounceTimer  = null;
 let toastTimer     = null;
 let alertTimer     = null;
 let statusTimer    = null;
+let retryTimer     = null;
+let retryCount     = 0;
+const MAX_RETRIES    = 5;
+const RETRY_DELAY_MS = 3000;
 
 const PILL_HOURS  = CONFIG.PILL_HOURS;
 const PILL_LABELS = CONFIG.PILL_LABELS;
@@ -145,16 +149,43 @@ function topCategories(n) {
 
 function checkForYouAlert() {
   const topCats  = topCategories(2);
-  const seenUrls = load('dn_seenUrls', []);
-  if (topCats.length === 0) return;
+  const searches = load('dn_recentSearches', []);
+  const seenSet  = new Set(load('dn_seenUrls', []));
 
-  const seenSet = new Set(seenUrls);
-  const fresh = allArticles.filter(a => topCats.includes(a.category) && !seenSet.has(a.url));
-  if (fresh.length === 0) return;
+  // Fresh category articles
+  const freshCat = topCats.length > 0
+    ? allArticles.filter(a => topCats.includes(a.category) && !seenSet.has(a.url))
+    : [];
+
+  // Fresh search articles — deduplicated against category results
+  const counted = new Set(freshCat.map(a => a.url));
+  let freshSearchCount = 0;
+  for (const term of searches) {
+    const lower = term.toLowerCase();
+    for (const a of allArticles) {
+      if (!seenSet.has(a.url) && !counted.has(a.url) &&
+          ((a.title || '').toLowerCase().includes(lower) ||
+           (a.description || '').toLowerCase().includes(lower))) {
+        counted.add(a.url);
+        freshSearchCount++;
+      }
+    }
+  }
+
+  const total = freshCat.length + freshSearchCount;
+  if (total === 0) return;
+
+  let msg;
+  if (freshCat.length > 0 && freshSearchCount > 0) {
+    msg = `${total} new article${total > 1 ? 's' : ''} in your categories and searches`;
+  } else if (freshCat.length > 0) {
+    msg = `${freshCat.length} new article${freshCat.length > 1 ? 's' : ''} in your categories`;
+  } else {
+    msg = `${freshSearchCount} new article${freshSearchCount > 1 ? 's' : ''} matching your searches`;
+  }
 
   const alertEl = document.getElementById('foryou-alert');
-  document.getElementById('foryou-alert-msg').textContent =
-    `${fresh.length} new article${fresh.length > 1 ? 's' : ''} in your categories`;
+  document.getElementById('foryou-alert-msg').textContent = msg;
   alertEl.classList.remove('hidden');
   clearTimeout(alertTimer);
   alertTimer = setTimeout(() => alertEl.classList.add('hidden'), CONFIG.FORYOU_ALERT_MS);
@@ -176,14 +207,27 @@ function switchToForYou() {
 
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
-async function loadNews(keyword = '') {
-  renderLoading();
+async function loadNews(keyword = '', _isRetry = false) {
+  if (!_isRetry) {
+    retryCount = 0;
+    clearTimeout(retryTimer);
+    renderLoading();
+  }
   const params = new URLSearchParams();
   if (keyword) params.set('keyword', keyword);
   try {
     const res  = await fetch(`/api/news?${params}`);
     const data = await res.json();
     allArticles = data.articles || [];
+
+    // If the server just started and the initial NewsAPI fetch hasn't completed yet,
+    // keep retrying rather than showing "No articles yet" immediately.
+    if (allArticles.length === 0 && !keyword && retryCount < MAX_RETRIES) {
+      retryCount++;
+      retryTimer = setTimeout(() => loadNews('', true), RETRY_DELAY_MS);
+      return;
+    }
+
     applyFilters();
     checkForYouAlert();
   } catch {
