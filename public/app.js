@@ -626,6 +626,19 @@ document.getElementById('btn-refresh').addEventListener('click', async () => {
   scheduleFeedStatus();
 });
 
+document.getElementById('btn-reset-state').addEventListener('click', () => {
+  ['dn_recentArticles', 'dn_recentAuthors', 'dn_recentSearches',
+   'dn_seenUrls', 'dn_readCategories', 'dn_panelOpen'].forEach(k => localStorage.removeItem(k));
+  searchInput.value = '';
+  activeCategory = 'All';
+  activeHours = 24;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.category === 'All'));
+  setActivePill(activeHours);
+  togglePanel(false);
+  renderPanel();
+  applyFilters();
+});
+
 // Modal
 function closeModal() { modal.classList.add('hidden'); }
 modalClose.addEventListener('click', closeModal);

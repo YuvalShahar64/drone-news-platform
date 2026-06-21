@@ -84,6 +84,15 @@ header h1 {
   opacity: 0.45;
   cursor: default;
 }
+.header-action-btn--danger {
+  background: rgba(220, 60, 60, 0.25);
+  color: #ffb3b3;
+  border-color: rgba(220, 60, 60, 0.4);
+}
+.header-action-btn--danger:hover:not(:disabled) {
+  background: rgba(220, 60, 60, 0.5);
+  color: #fff;
+}
 @media (max-width: 640px) { .header-actions { display: none; } }
 
 /* ── Feed status label ── */
