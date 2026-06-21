@@ -21,6 +21,12 @@ npm start
 
 The server starts on `http://localhost:3000` (or the port set in `.env`).
 
+### Important Notes on Installation & Dependencies
+
+* **Native Modules (SQLite):** This project uses `better-sqlite3` which requires native C++ compilation. If your `npm` is configured to prevent automatic script execution, you may see an `allow-scripts` warning. To resolve this and build the database driver, run:
+  `npm approve-scripts better-sqlite3`
+* **NPM Audit Warnings:** During `npm install`, you might notice `deprecated` warnings or moderate vulnerabilities reported by `npm audit`. Please note that these originate entirely from deep sub-dependencies of our testing framework (`jest`) and build tools. They do not run in production and pose no security risk to the application itself. Running `npm audit fix --force` is not recommended as it introduces breaking changes to Jest.
+
 ## How to Run Tests
 
 ```bash
